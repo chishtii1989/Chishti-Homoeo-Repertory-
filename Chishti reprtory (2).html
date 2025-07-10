@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>چشتی ہومیو ریپرٹری</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Nastaliq Urdu', sans-serif; }
+    .urdu { direction: rtl; text-align: right; }
+    .dropdown-content { display: none; }
+    .dropdown:hover .dropdown-content { display: block; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 100; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+        justify-content: center;
+        align-items: center;
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border-radius: 0.5rem;
+        width: 80%;
+        max-width: 600px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        position: relative;
+    }
+    .dark .modal-content {
+        background-color: #1f2937; /* Dark background for modal */
+    }
+    .close-button {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+    .close-button:hover,
+    .close-button:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+    .dark .close-button {
+        color: #ccc;
+    }
+    .dark .close-button:hover,
+    .dark .close-button:focus {
+        color: white;
+    }
+    /* Loading spinner styles */
+    .spinner {
+        border: 4px solid rgba(0, 0, 0, 0.1);
+        border-left-color: #3b82f6;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        animation: spin 1s linear infinite;
+    }
+    .dark .spinner {
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-left-color: #60a5fa;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    /* Table styles for the new chart tab */
+    .medicine-chart-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+    .medicine-chart-table th, .medicine-chart-table td {
+        border: 1px solid #e2e8f0; /* Tailwind's gray-200 */
+        padding: 0.75rem;
+        text-align: right;
+    }
+    .dark .medicine-chart-table th, .dark .medicine-chart-table td {
+        border-color: #4a5568; /* Tailwind's gray-600 */
+    }
+    .medicine-chart-table th {
+        background-color: #edf2f7; /* Tailwind's gray-100 */
+        font-weight: bold;
+    }
+    .dark .medicine-chart-table th {
+        background-color: #2d3748; /* Tailwind's gray-800 */
+    }
+    .medicine-chart-table tr:nth-child(even) {
+        background-color: #f7fafc; /* Tailwind's gray-50 */
+    }
+    .dark .medicine-chart-table tr:nth-child(even) {
+        background-color: #1a202c; /* Tailwind's gray-900 */
+    }
+  </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+  <header class="bg-blue-600 text-white p-4 flex flex-col md:flex-row justify-between items-center">
+    <div class="flex items-center mb-4 md:mb-0">
+      <img id="appLogo" src="" alt="چشتی ہومیو ریپرٹری لوگو" class="h-12 mr-4 rounded-full">
+      <div id="logoLoading" class="spinner"></div>
+      <h1 class="text-2xl font-bold">چشتی ہومیو ریپرٹری</h1>
+    </div>
+    <div class="flex space-x-4">
+      <button onclick="toggleDarkMode()" class="bg-gray-800 px-4 py-2 rounded hover:bg-gray-700">ڈارک/لائٹ موڈ</button>
+    </div>
+  </header>
+
+  <nav class="bg-blue-700 text-white p-2 flex justify-center space-x-4">
+    <button id="medicineTabBtn" class="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 active-tab">ادویات</button>
+    <button id="diseaseTabBtn" class="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500">بیماریاں</button>
+    <button id="medicineChartTabBtn" class="px-4 py-2 rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500">تمام ادویات کا چارٹ</button>
+  </nav>
+
+  <main class="container mx-auto p-4">
+    <!-- Medicine Search Tab Content -->
+    <div id="medicineTabContent" class="tab-content active">
+      <div class="mb-4">
+        <input id="medicineSearchInput" type="text" placeholder="دوا تلاش کریں..." class="w-full p-3 border rounded-lg urdu focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div id="medicineResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="allMedicineList" class="mt-4">
+        <h2 class="text-xl font-bold mb-2 urdu">تمام ہومیوپیتھک ادویات</h2>
+        <ul id="allMedicineListItems" class="list-disc list-inside urdu"></ul>
+      </div>
+    </div>
+
+    <!-- Disease Search Tab Content -->
+    <div id="diseaseTabContent" class="tab-content">
+      <div class="mb-4">
+        <input id="diseaseSearchInput" type="text" placeholder="بیماری تلاش کریں..." class="w-full p-3 border rounded-lg urdu focus:outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div id="diseaseResults" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="allDiseaseList" class="mt-4">
+        <h2 class="text-xl font-bold mb-2 urdu">تمام بیماریاں (علامات)</h2>
+        <ul id="allDiseaseListItems" class="list-disc list-inside urdu"></ul>
+      </div>
+
+        <!-- Disease Related Medicines Section -->
+        <div id="diseaseRelatedMedicinesSection" class="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md hidden">
+            <h3 id="diseaseRelatedMedicinesTitle" class="text-xl font-bold mb-4 urdu"></h3>
+            <div id="diseaseRelatedMedicinesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            <button onclick="backToDiseaseSearch()" class="mt-6 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-md">واپس بیماریوں کی تلاش</button>
+        </div>
+    </div>
+
+    <!-- All Medicines Chart Tab Content -->
+    <div id="medicineChartTabContent" class="tab-content">
+        <div class="mb-4">
+            <input id="medicineChartSearchInput" type="text" placeholder="چارٹ میں دوا تلاش کریں..." class="w-full p-3 border rounded-lg urdu focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div id="medicineChartResults" class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+            <table class="medicine-chart-table">
+                <thead>
+                    <tr>
+                        <th class="py-2 px-4">دوا کا نام</th>
+                        <th class="py-2 px-4">اینٹی ڈوٹ</th>
+                        <th class="py-2 px-4">آپوزٹ</th>
+                    </tr>
+                </thead>
+                <tbody id="medicineChartTableBody">
+                    <!-- Chart rows will be inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+  </main>
+
+  <!-- Medicine Detail Modal -->
+  <div id="medicineDetailModal" class="modal">
+    <div class="modal-content urdu">
+      <span class="close-button" onclick="closeMedicineDetailModal()">&times;</span>
+      <h2 id="modalMedicineName" class="text-2xl font-bold mb-4 text-blue-700 dark:text-blue-400"></h2>
+      <p class="text-base mb-2"><strong>علامات:</strong> <span id="modalSymptoms" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>خوراک:</strong> <span id="modalDosage" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>تفصیلات:</strong> <span id="modalDetails" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>سائیڈ ایفیکٹس:</strong> <span id="modalSideEffects" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>اینٹی ڈوٹ:</strong> <span id="modalAntidote" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>آپوزٹ:</strong> <span id="modalOpposite" class="text-gray-700 dark:text-gray-300"></span></p>
+      <p class="text-base mb-2"><strong>مٹیریا میڈیکا حوالہ:</strong> <span id="modalMateriaMedica" class="text-gray-700 dark:text-gray-300"></span></p>
+    </div>
+  </div>
+
+  <script>
+    // Function to generate and set the logo
+    async function generateAndSetLogo() {
+        const logoElement = document.getElementById('appLogo');
+        const loadingElement = document.getElementById('logoLoading');
+
+        logoElement.style.display = 'none'; // Hide logo initially
+        loadingElement.style.display = 'block'; // Show loading spinner
+
+        const prompt = "A simple, elegant, and professional logo for a homeopathic clinic named 'Chishti Homoeo Repertory'. The logo should incorporate elements like a stylized mortar and pestle, a healing plant leaf, or a drop, symbolizing natural medicine. The design should be clean and modern, with a touch of traditional or organic feel. Use a color palette of soft blues, greens, and whites, or earthy tones. The text 'Chishti Homoeo Repertory' in Urdu (چشتی ہومیو ریپرٹری) should be subtly integrated or placed beneath the symbol.";
+        const payload = { instances: { prompt: prompt }, parameters: { "sampleCount": 1} };
+        const apiKey = ""; // Leave as empty string, Canvas will provide it
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+
+            if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                logoElement.src = imageUrl;
+                logoElement.style.display = 'block'; // Show logo
+            } else {
+                console.error('Failed to generate logo: Invalid response structure', result);
+                // Fallback to a placeholder if generation fails
+                logoElement.src = "https://placehold.co/48x48/000000/FFFFFF?text=Logo";
+                logoElement.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error generating logo:', error);
+            // Fallback to a placeholder on error
+            logoElement.src = "https://placehold.co/48x48/000000/FFFFFF?text=Logo";
+            logoElement.style.display = 'block';
+        } finally {
+            loadingElement.style.display = 'none'; // Hide loading spinner
+        }
+    }
+
+    // Array containing all homeopathic medicines and their details
+    const medicines = [
+      { name: "Arnica Montana", symptoms: ["صدمہ", "چوٹ", "درد"], dosage: "30C, 3 pellets daily", details: "صدمات اور چوٹوں کے لیے موثر۔", sideEffects: "کوئی خاص سائیڈ ایفیکٹس نہیں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Belladonna", symptoms: ["بخار", "سر درد", "سوزش"], dosage: "30C, 2 pellets every 4 hours", details: "تیز بخار اور سوزش کے لیے۔", sideEffects: "زیادہ مقدار سے چکر آ سکتے ہیں", antidote: "کیمفر، اوپیم", opposite: "کافیا", materiaMedica: "Boericke" },
+      { name: "Aconitum Napellus", symptoms: ["اچانک بخار", "بے چینی", "خوف"], dosage: "30C, 3 pellets every 2 hours", details: "اچانک شروع ہونے والے بخار اور خوف کے لیے۔", sideEffects: "محتاط مقدار میں استعمال کریں", antidote: "کافیا، نکس وومیکا", opposite: "کافیا", materiaMedica: "KENT" },
+      { name: "Allium Cepa", symptoms: ["نزلہ", "آنکھوں سے پانی", "الرجی"], dosage: "6C, 3 pellets every 3 hours", details: "نزلہ زکام اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر، نکس وومیکا", opposite: "تھوجا", materiaMedica: "Boericke" },
+      { name: "Chamomilla", symptoms: ["دانتوں کا درد", "چڑچڑاپن", "بے چینی (بچوں میں)"], dosage: "30C, 3 pellets as needed", details: "بچوں کے دانت نکلنے کے درد کے لیے۔", sideEffects: "زیادہ استعمال سے بے چینی", antidote: "کافیا، نکس وومیکا", opposite: "کافیا", materiaMedica: "KENT" },
+      { name: "Hypericum", symptoms: ["اعصابی درد", "زخم", "چوٹ"], dosage: "30C, 3 pellets every 4 hours", details: "اعصابی چوٹوں اور زخموں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "آرسینک", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Nux Vomica", symptoms: ["ہاضمے کی خرابی", "غصہ", "تناؤ"], dosage: "30C, 2 pellets daily", details: "ہاضمے کے مسائل اور تناؤ کے لیے۔", sideEffects: "زیادہ مقدار سے سر درد", antidote: "کافیا، پلساٹیلا", opposite: "جیلسی میم", materiaMedica: "KENT" },
+      { name: "Pulsatilla", symptoms: ["ماہواری کے مسائل", "رونا", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "ماہواری کے مسائل اور جذباتی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کافیا، نکس وومیکا", opposite: "نکس وومیکا", materiaMedica: "Boericke" },
+      { name: "Rhus Toxicodendron", symptoms: ["جوڑوں کا درد", "کھجلی", "جلد کی الرجی"], dosage: "30C, 3 pellets every 4 hours", details: "جوڑوں کے درد اور جلد کی الرجی کے لیے۔", sideEffects: "جلد پر خارش ممکن", antidote: "کیمفر، رس ٹاکس", opposite: "برائیونیا", materiaMedica: "KENT" },
+      { name: "Sulphur", symptoms: ["جلد کے مسائل", "کھجلی", "دائمی بیماریاں"], dosage: "30C, 2 pellets daily", details: "جلد کے مسائل اور دائمی بیماریوں کے لیے۔", sideEffects: "عارضی طور پر علامات بڑھ سکتی ہیں", antidote: "کیمفر، نکس وومیکا", opposite: "پلسٹیلا", materiaMedica: "Boericke" },
+      { name: "Calcarea Carbonica", symptoms: ["ہڈیوں کی کمزوری", "تھکاوٹ", "دانتوں کی کمزوری"], dosage: "30C, 3 pellets daily", details: "ہڈیوں اور دانتوں کی کمزوری کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "سلفر", materiaMedica: "KENT" },
+      { name: "Apis Mellifica", symptoms: ["سوزش", "کیڑوں کا کاٹنا", "جلن"], dosage: "30C, 3 pellets every 3 hours", details: "سوزش اور کیڑوں کے کاٹنے کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "لیڈم", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Bryonia Alba", symptoms: ["خشک کھانسی", "جوڑوں کا درد", "پیاس"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور جوڑوں کے درد کے لیے۔", sideEffects: "زیادہ مقدار سے بدہضمی", antidote: "رس ٹاکس", opposite: "رس ٹاکس", materiaMedica: "KENT" },
+      { name: "Gelsemium", symptoms: ["فلو", "بے چینی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "فلو اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کافیا", opposite: "نکس وومیکا", materiaMedica: "Boericke" },
+      { name: "Ignatia Amara", symptoms: ["اداسی", "غم", "جذباتی صدمہ"], dosage: "30C, 3 pellets daily", details: "جذباتی مسائل اور غم کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کافیا", opposite: "نکس وومیکا", materiaMedica: "KENT" },
+      { name: "Lycopodium", symptoms: ["ہاضمے کی خرابی", "خود اعتمادی کی کمی", "پیٹ پھولنا"], dosage: "30C, 2 pellets daily", details: "ہاضمے اور خود اعتمادی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "پلساٹیلا", materiaMedica: "Boericke" },
+      { name: "Phosphorus", symptoms: ["خون کا بہنا", "کھانسی", "سانس کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "خون کے بہاؤ اور سانس کے مسائل کے لیے۔", sideEffects: "زیادہ مقدار سے چکر", antidote: "نکس وومیکا", opposite: "کیمفر", materiaMedica: "KENT" },
+      { name: "Sepia", symptoms: ["ماہواری کے مسائل", "تھکاوٹ", "ہارمونل مسائل"], dosage: "30C, 3 pellets daily", details: "ماہواری اور ہارمونل مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "نکس وومیکا", opposite: "لائکوپوڈیم", materiaMedica: "Boericke" },
+      { name: "Silicea", symptoms: ["ناخنوں کی کمزوری", "جلد کے مسائل", "پسینہ"], dosage: "30C, 3 pellets daily", details: "ناخنوں اور جلد کی کمزوری کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "سلفر", materiaMedica: "KENT" },
+      { name: "Spigelia", symptoms: ["سر درد", "چہرے کا درد", "مائیگرین"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "نکس وومیکا", materiaMedica: "Boericke" },
+      { name: "Aesculus Hippocastanum", symptoms: ["بواسیر", "کمر درد", "رگوں کے مسائل"], dosage: "30C, 3 pellets daily", details: "بواسیر اور کمر کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Agaricus Muscarius", symptoms: ["جھٹکے", "کھجلی", "اعصابی مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "اعصابی جھٹکوں اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Antimonium Crudum", symptoms: ["جلد کے مسائل", "ہاضمے کی خرابی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جلد اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "ہیپر سلف", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Antimonium Tartaricum", symptoms: ["سانس کی تکلیف", "کھانسی", "بلغم"], dosage: "30C, 3 pellets every 4 hours", details: "سانس کی تکلیف اور کھانسی کے لیے۔", sideEffects: "زیادہ مقدار سے متلی", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Argentum Nitricum", symptoms: ["پریشانی", "ہاضمے کی خرابی", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "پریشانی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "نکس وومیکا", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Arsenicum Album", symptoms: ["بے چینی", "ہاضمے کی خرابی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "بے چینی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر، چائنا", opposite: "نکس وومیکا", materiaMedica: "Boericke" },
+      { name: "Aurum Metallicum", symptoms: ["ڈپریشن", "دل کی بیماری", "خودکشی کے خیالات"], dosage: "30C, 3 pellets daily", details: "ڈپریشن اور دل کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کافیا", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Baptisia Tinctoria", symptoms: ["بخار", "تھکاوٹ", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "آرسینک", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Berberis Vulgaris", symptoms: ["گردے کے مسائل", "جوڑوں کا درد", "پتھری"], dosage: "30C, 3 pellets daily", details: "گردے اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Calcarea Fluorica", symptoms: ["ہڈیوں کی کمزوری", "جوڑوں کا درد", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "ہڈیوں اور جوڑوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Calcarea Phosphorica", symptoms: ["ہڈیوں کی نشوونما", "دانتوں کی کمزوری", "تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "ہڈیوں اور دانتوں کی نشوونما کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cantharis", symptoms: ["پیشاب کی جلن", "جلد کی سوزش", "جلنا"], dosage: "30C, 3 pellets every 3 hours", details: "پیشاب کی جلن اور جلد کی سوزش کے لیے۔", sideEffects: "زیادہ مقدار سے جلن", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Carbo Vegetabilis", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "پیٹ پھولنا"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "نکس وومیکا", materiaMedica: "KENT" },
+      { name: "Causticum", symptoms: ["جوڑوں کا درد", "اعصابی کمزوری", "پٹھوں کا فالج"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور اعصابی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کافیا", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "China Officinalis", symptoms: ["تھکاوٹ", "ہاضمے کی خرابی", "بخار"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "آرسینک", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cocculus Indicus", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "نکس وومیکا", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Coffea Cruda", symptoms: ["نیند نہ آنا", "بے چینی", "سر درد"], dosage: "30C, 3 pellets as needed", details: "بے خوابی اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "نکس وومیکا", opposite: "بیلاڈونا", materiaMedica: "KENT" },
+      { name: "Colocynthis", symptoms: ["پیٹ کا درد", "ماہواری کا درد", "عضلاتی کھچاؤ"], dosage: "30C, 3 pellets every 3 hours", details: "پیٹ اور ماہواری کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Conium Maculatum", symptoms: ["چکر", "اعصابی کمزوری", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "چکر اور اعصابی کمزوری کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کافیا", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Drosera Rotundifolia", symptoms: ["خشک کھانسی", "سانس کی تکلیف", "گلے کی سوزش"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Dulcamara", symptoms: ["جوڑوں کا درد", "نزلہ", "سردی"], dosage: "30C, 3 pellets daily", details: "جوڑوں کے درد اور نزلہ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Euphrasia Officinalis", symptoms: ["آنکھوں کی سوزش", "الرجی", "آنکھوں سے پانی"], dosage: "30C, 3 pellets every 3 hours", details: "آنکھوں کی سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ferrum Phosphoricum", symptoms: ["بخار", "سوزش", "کمزوری"], dosage: "30C, 3 pellets every 4 hours", details: "ابتدائی بخار اور سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Graphites", symptoms: ["جلد کے مسائل", "خارش", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور خارش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "نکس وومیکا", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Hepar Sulphuris", symptoms: ["گلے کی سوزش", "جلد کے مسائل", "پٹھوں میں درد"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "بیلاڈونا", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Bichromicum", symptoms: ["ناک کی بندش", "سینوس", "گلے کی سوزش"], dosage: "30C, 3 pellets every 4 hours", details: "سینوس اور ناک کی بندش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Carbonicum", symptoms: ["کمر درد", "سانس کی تکلیف", "تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "کمر درد اور سانس کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Phosphoricum", symptoms: ["دماغی تھکاوٹ", "بے چینی", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "دماغی تھکاوٹ اور بے چینی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Lachesis", symptoms: ["ماہواری کے مسائل", "گرمی کی لہریں", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "ماہواری اور گرمی کی لہروں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "آرسینک", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ledum Palustre", symptoms: ["کیڑوں کا کاٹنا", "چوٹ", "جوڑوں کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "کیڑوں کے کاٹنے اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "ایپس", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Magnesia Phosphorica", symptoms: ["عضلاتی درد", "ماہواری کا درد", "پیٹ کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "عضلاتی اور ماہواری کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Mercurius Solubilis", symptoms: ["گلے کی سوزش", "بخار", "پسینہ"], dosage: "30C, 3 pellets every 4 hours", details: "گلے کی سوزش اور بخار کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "ہیپر سلف", opposite: "بیلاڈونا", materiaMedica: "Boericke" },
+      { name: "Natrum Muriaticum", symptoms: ["سر درد", "اداسی", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "سر درد اور جذباتی مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "آرسینک", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Natrum Sulphuricum", symptoms: ["دمہ", "سر درد", "جگر کے مسائل"], dosage: "30C, 3 pellets daily", details: "دمہ اور سر درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Phosphoricum Acidum", symptoms: ["دماغی تھکاوٹ", "غم", "کمزوری"], dosage: "30C, 3 pellets daily", details: "دماغی تھکاوٹ اور غم کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ruta Graveolens", symptoms: ["جوڑوں کا درد", "چوٹ", "ہڈیوں کا درد"], dosage: "30C, 3 pellets every 4 hours", details: "جوڑوں کے درد اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sanguinaria Canadensis", symptoms: ["مائیگرین", "چہرے کا درد", "سر درد"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Staphysagria", symptoms: ["غصہ", "پیشاب کی تکلیف", "جلد کے مسائل"], dosage: "30C, 3 pellets daily", details: "غصہ اور پیشاب کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Symphytum Officinale", symptoms: ["ہڈیوں کی چوٹ", "فریکچر", "جوڑوں کا درد"], dosage: "30C, 3 pellets daily", details: "ہڈیوں کی چوٹ اور فریکچر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Thuja Occidentalis", symptoms: ["جلد کے مسائل", "مسے", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور مسوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "مرکیورس", materiaMedica: "Boericke" },
+      { name: "Veratrum Album", symptoms: ["متلی", "اسہال", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور اسہال کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Zincum Metallicum", symptoms: ["اعصابی بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "اعصابی بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کیمفر", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Abrotanum", symptoms: ["جوڑوں کا درد", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "جوڑوں کے درد اور کمزوری کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aethusa Cynapium", symptoms: ["متلی", "دودھ کی عدم برداشت", "پیٹ کا درد (بچوں میں)"], dosage: "30C, 3 pellets every 3 hours", details: "بچوں میں متلی اور دودھ کی عدم برداشت کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Agaricus Campestris", symptoms: ["جھٹکے", "کھجلی", "اعصابی مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "اعصابی جھٹکوں اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Alumina", symptoms: ["خشک جلد", "دماغی سستی", "قبض"], dosage: "30C, 3 pellets daily", details: "خشک جلد اور دماغی سستی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ambra Grisea", symptoms: ["شرمیلا پن", "بے چینی", "گھبراہٹ"], dosage: "30C, 3 pellets daily", details: "شرمیلا پن اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Anacardium Orientale", symptoms: ["یادداشت کی کمزوری", "غصہ", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "یادداشت کی کمزوری اور غصے کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Apis Venenum Purum", symptoms: ["سوزش", "الرجی", "جلن"], dosage: "30C, 3 pellets every 3 hours", details: "سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Argentum Metallicum", symptoms: ["اعصابی کمزوری", "جوڑوں کا درد", "کمزوری"], dosage: "30C, 3 pellets daily", details: "اعصابی کمزوری اور جوڑوں کے درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Arsenicum Iodatum", symptoms: ["جلد کے مسائل", "سانس کی تکلیف", "تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "جلد اور سانس کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Asafoetida", symptoms: ["ہاضمے کی خرابی", "بے چینی", "پیٹ پھولنا"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور بے چینی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Asterias Rubens", symptoms: ["ماہواری کے مسائل", "جلد کی سوزش", "چھاتیاں"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جلد کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Baryta Carbonica", symptoms: ["دماغی کمزوری", "غدود کے مسائل", "بچوں میں نشوونما کی کمی"], dosage: "30C, 3 pellets daily", details: "دماغی کمزوری اور غدود کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Bellis Perennis", symptoms: ["چوٹ", "عضلاتی درد", "سرجری کے بعد درد"], dosage: "30C, 3 pellets every 4 hours", details: "چوٹ اور عضلاتی درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Bismuthum", symptoms: ["متلی", "پیٹ کا درد", "الٹی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور پیٹ کے درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Borax", symptoms: ["منہ کے چھالے", "پریشانی", "بچوں میں خوف"], dosage: "30C, 3 pellets daily", details: "منہ کے چھالوں اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Bromium", symptoms: ["سانس کی تکلیف", "گلے کی سوزش", "غدود کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "سانس اور گلے کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Bryonia Dioica", symptoms: ["خشک کھانسی", "جوڑوں کا درد", "پیاس"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور جوڑوں کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cactus Grandiflorus", symptoms: ["دل کی تکلیف", "درد", "سینے میں دباؤ"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Calcarea Sulphurica", symptoms: ["جلد کے مسائل", "زخم", "پٹھوں میں درد"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور زخموں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Camphora", symptoms: ["سردی لگنا", "بخار", "کمزوری"], dosage: "30C, 3 pellets every 4 hours", details: "سردی اور بخار کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Carboneum Sulphuratum", symptoms: ["جلد کی سوزش", "کھجلی", "اعصابی درد"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Caulophyllum Thalictroides", symptoms: ["ماہواری کا درد", "زچگی", "پٹھوں میں کھچاؤ"], dosage: "30C, 3 pellets every 3 hours", details: "ماہواری اور زچگی کے درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ceanothus Americanus", symptoms: ["جگر کے مسائل", "تھکاوٹ", "تلی کا بڑھنا"], dosage: "30C, 3 pellets daily", details: "جگر کے مسائل اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Chamomilla Matricaria", symptoms: ["چڑچڑاپن", "دانتوں کا درد", "بے چینی (بچوں میں)"], dosage: "30C, 3 pellets as needed", details: "چڑچڑاپن اور دانتوں کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Chelidonium Majus", symptoms: ["جگر کے مسائل", "ہاضمے کی خرابی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cimicifuga Racemosa", symptoms: ["ماہواری کے مسائل", "جوڑوں کا درد", "دماغی تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cina", symptoms: ["پیٹ کے کیڑے", "چڑچڑاپن", "بچوں میں بے چینی"], dosage: "30C, 3 pellets daily", details: "پیٹ کے کیڑوں اور چڑچڑاپن کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cocculus Indicus", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Colchicum Autumnale", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "متلی"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Collinsonia Canadensis", symptoms: ["بواسیر", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "بواسیر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cuprum Metallicum", symptoms: ["پٹھوں کے کھچاؤ", "جھٹکے", "مرگی"], dosage: "30C, 3 pellets every 3 hours", details: "پٹھوں کے کھچاؤ اور جھٹکوں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Digitalis Purpurea", symptoms: ["دل کی تکلیف", "تھکاوٹ", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Echinacea Angustifolia", symptoms: ["مدافعتی کمزوری", "بخار", "سوزش"], dosage: "30C, 3 pellets daily", details: "مدافعتی نظام اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Eupatorium Perfoliatum", symptoms: ["ہڈیوں کا درد", "بخار", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "ہڈیوں کے درد اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ferrum Metallicum", symptoms: ["خون کی کمی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "خون کی کمی اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Gelsemium Sempervirens", symptoms: ["فلو", "پریشانی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "فلو اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Glonoinum", symptoms: ["سر درد", "گرمی کی لہریں", "چکر"], dosage: "30C, 3 pellets every 3 hours", details: "سر درد اور گرمی کی لہروں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Hamamelis Virginiana", symptoms: ["رگوں کے مسائل", "چوٹ", "بواسیر"], dosage: "30C, 3 pellets daily", details: "رگوں کے مسائل اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Hydrastis Canadensis", symptoms: ["سینوس", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "سینوس اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ipecacuanha", symptoms: ["متلی", "الٹی", "کھانسی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور الٹی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Iris Versicolor", symptoms: ["مائیگرین", "ہاضمے کی خرابی", "سر درد"], dosage: "30C, 3 pellets daily", details: "مائیگرین اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Iodatum", symptoms: ["سینوس", "سانس کی تکلیف", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "سینوس اور سانس کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Muriaticum", symptoms: ["گلے کی سوزش", "ناک کی بندش", "کان کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور ناک کی بندش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Sulphuricum", symptoms: ["جلد کے مسائل", "کھانسی", "دمہ"], dosage: "30C, 3 pellets daily", details: "جلد اور کھانسی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kreosotum", symptoms: ["ماہواری کے مسائل", "جلد کی سوزش", "کھجلی"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جلد کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lac Caninum", symptoms: ["گلے کی سوزش", "خود اعتمادی کی کمی", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے اور خود اعتمادی کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Laurocerasus", symptoms: ["سانس کی تکلیف", "دل کی تکلیف", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lilium Tigrinum", symptoms: ["ماہواری کے مسائل", "جذباتی مسائل", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جذباتی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Magnesia Muriatica", symptoms: ["ہاضمے کی خرابی", "ماہواری کا درد", "سر درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Manganum Aceticum", symptoms: ["جوڑوں کا درد", "اعصابی کمزوری", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور اعصابی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Medorrhinum", symptoms: ["دمہ", "جلد کے مسائل", "جنسی مسائل"], dosage: "30C, 3 pellets daily", details: "دمہ اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Mercurius Corrosivus", symptoms: ["پیشاب کی جلن", "گلے کی سوزش", "اسہال"], dosage: "30C, 3 pellets every 3 hours", details: "پیشاب اور گلے کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Mezereum", symptoms: ["جلد کی سوزش", "کھجلی", "اعصابی درد"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Muriaticum Acidum", symptoms: ["تھکاوٹ", "ہاضمے کی خرابی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Naja Tripudians", symptoms: ["دل کی تکلیف", "بے چینی", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Natrum Carbonicum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "گرمی کی عدم برداشت"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Nitricum Acidum", symptoms: ["جلد کے مسائل", "پیشاب کی تکلیف", "زخم"], dosage: "30C, 3 pellets daily", details: "جلد اور پیشاب کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Nux Moschata", symptoms: ["نیند کی خرابی", "ہاضمے کی خرابی", "خشک منہ"], dosage: "30C, 3 pellets daily", details: "نیند اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Opium", symptoms: ["دماغی سستی", "نیند کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "دماغی سستی اور نیند کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Petroleum", symptoms: ["جلد کی سوزش", "خشک جلد", "کھجلی"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور خشک جلد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Phytolacca Decandra", symptoms: ["گلے کی سوزش", "جوڑوں کا درد", "غدود کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Plumbum Metallicum", symptoms: ["اعصابی کمزوری", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "اعصابی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Psorinum", symptoms: ["جلد کے مسائل", "کھجلی", "بدبو"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Pyrogenium", symptoms: ["بخار", "سوزش", "تھکاوٹ"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Radium Bromatum", symptoms: ["جوڑوں کا درد", "جلد کے مسائل", "جلن"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ranunculus Bulbosus", symptoms: ["جلد کی سوزش", "جوڑوں کا درد", "سینے میں درد"], dosage: "30C, 3 pellets daily", details: "جلد اور جوڑوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Rheum Palustre", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "اسہال"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sabadilla", symptoms: ["نزلہ", "الرجی", "چھینکیں"], dosage: "30C, 3 pellets every 3 hours", details: "نزلہ زکام اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sabina", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "درد"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sambucus Nigra", symptoms: ["ناک کی بندش", "کھانسی", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "ناک کی بندش اور کھانسی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sanguinaria", symptoms: ["مائیگرین", "چہرے کا درد", "سر درد"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Secale Cornutum", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "جلن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Spongia Tosta", symptoms: ["خشک کھانسی", "گلے کی سوزش", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Stramonium", symptoms: ["خوف", "بے چینی", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "خوف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sulphuric Acid", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "جلن"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Tabacum", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Tarentula Hispanica", symptoms: ["بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Urtica Urens", symptoms: ["جلد کی سوزش", "الرجی", "کھجلی"], dosage: "30C, 3 pellets every 3 hours", details: "جلد کی سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Valeriana Officinalis", symptoms: ["نیند کی خرابی", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "نیند اور بے چینی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Viburnum Opulus", symptoms: ["ماہواری کا درد", "عضلاتی کھچاؤ", "پیٹ کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "ماہواری اور عضلاتی درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Zingiber Officinale", symptoms: ["ہاضمے کی خرابی", "متلی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور متلی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aceticum Acidum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aesculus Carnea", symptoms: ["بواسیر", "رگوں کے مسائل", "کمر درد"], dosage: "30C, 3 pellets daily", details: "بواسیر اور رگوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aethiops Mineralis", symptoms: ["جلد کے مسائل", "سوزش", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "جلد اور سوزش کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Agnus Castus", symptoms: ["جنسی کمزوری", "تھکاوٹ", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Alfalfa", symptoms: ["تھکاوٹ", "بھوک کی کمی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور بھوک کی کمی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ammonium Carbonicum", symptoms: ["سانس کی تکلیف", "تھکاوٹ", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Anthracinum", symptoms: ["جلد کے زخم", "سوزش", "جلن"], dosage: "30C, 3 pellets daily", details: "جلد کے زخم اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Apocynum Cannabinum", symptoms: ["پانی کی کمی", "دل کی تکلیف", "سوجن"], dosage: "30C, 3 pellets daily", details: "پانی کی کمی اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aralia Racemosa", symptoms: ["کھانسی", "سانس کی تکلیف", "دمہ"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور سانس کی تکلیف کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Argentum Cyanatum", symptoms: ["گلے کی سوزش", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے کی سوزش اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Arum Triphyllum", symptoms: ["ناک کی بندش", "گلے کی سوزش", "کھانسی"], dosage: "30C, 3 pellets every 4 hours", details: "ناک اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Asarum Europaeum", symptoms: ["متلی", "سر درد", "سردی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور سر درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Asclepias Tuberosa", symptoms: ["کھانسی", "بخار", "پٹھوں میں درد"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aurum Muriaticum", symptoms: ["ڈپریشن", "دل کی تکلیف", "خوف"], dosage: "30C, 3 pellets daily", details: "ڈپریشن اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Badiaga", symptoms: ["جلد کے مسائل", "کھجلی", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Baptisia Confusa", symptoms: ["بخار", "تھکاوٹ", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Benzoicum Acidum", symptoms: ["پیشاب کی تکلیف", "جوڑوں کا درد", "گردے کے مسائل"], dosage: "30C, 3 pellets daily", details: "پیشاب اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Bovista", symptoms: ["جلد کے مسائل", "ماہواری کے مسائل", "پیٹ پھولنا"], dosage: "30C, 3 pellets daily", details: "جلد اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Caladium Seguinum", symptoms: ["جنسی کمزوری", "کھجلی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Calendula Officinalis", symptoms: ["زخم", "جلد کی سوزش", "جلن"], dosage: "30C, 3 pellets as needed", details: "زخموں اور جلد کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Capsicum Annuum", symptoms: ["گلے کی سوزش", "جلن", "درد"], dosage: "30C, 3 pellets every 3 hours", details: "گلے کی سوزش اور جلن کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Carduus Marianus", symptoms: ["جگر کے مسائل", "بواسیر", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور بواسیر کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Castor Equi", symptoms: ["ناخنوں کے مسائل", "جلد کے مسائل", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "ناخنوں اور جلد کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Chamomilla Vulgaris", symptoms: ["چڑچڑاپن", "دانتوں کا درد", "بے چینی (بچوں میں)"], dosage: "30C, 3 pellets as needed", details: "چڑچڑاپن اور دانتوں کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Chelidonium Majus", symptoms: ["جگر کے مسائل", "ہاضمے کی خرابی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cimicifuga Racemosa", symptoms: ["ماہواری کے مسائل", "جوڑوں کا درد", "دماغی تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cina", symptoms: ["پیٹ کے کیڑے", "چڑچڑاپن", "بچوں میں بے چینی"], dosage: "30C, 3 pellets daily", details: "پیٹ کے کیڑوں اور چڑچڑاپن کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cocculus Indicus", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Colchicum Autumnale", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "متلی"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Collinsonia Canadensis", symptoms: ["بواسیر", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "بواسیر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cuprum Metallicum", symptoms: ["پٹھوں کے کھچاؤ", "جھٹکے", "مرگی"], dosage: "30C, 3 pellets every 3 hours", details: "پٹھوں کے کھچاؤ اور جھٹکوں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Digitalis Purpurea", symptoms: ["دل کی تکلیف", "تھکاوٹ", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Echinacea Angustifolia", symptoms: ["مدافعتی کمزوری", "بخار", "سوزش"], dosage: "30C, 3 pellets daily", details: "مدافعتی نظام اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Eupatorium Perfoliatum", symptoms: ["ہڈیوں کا درد", "بخار", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "ہڈیوں کے درد اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ferrum Metallicum", symptoms: ["خون کی کمی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "خون کی کمی اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Gelsemium Sempervirens", symptoms: ["فلو", "پریشانی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "فلو اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Glonoinum", symptoms: ["سر درد", "گرمی کی لہریں", "چکر"], dosage: "30C, 3 pellets every 3 hours", details: "سر درد اور گرمی کی لہروں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Hamamelis Virginiana", symptoms: ["رگوں کے مسائل", "چوٹ", "بواسیر"], dosage: "30C, 3 pellets daily", details: "رگوں کے مسائل اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Hydrastis Canadensis", symptoms: ["سینوس", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "سینوس اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ipecacuanha", symptoms: ["متلی", "الٹی", "کھانسی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور الٹی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Iris Versicolor", symptoms: ["مائیگرین", "ہاضمے کی خرابی", "سر درد"], dosage: "30C, 3 pellets daily", details: "مائیگرین اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Iodatum", symptoms: ["سینوس", "سانس کی تکلیف", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "سینوس اور سانس کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Muriaticum", symptoms: ["گلے کی سوزش", "ناک کی بندش", "کان کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور ناک کی بندش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Sulphuricum", symptoms: ["جلد کے مسائل", "کھانسی", "دمہ"], dosage: "30C, 3 pellets daily", details: "جلد اور کھانسی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kreosotum", symptoms: ["ماہواری کے مسائل", "جلد کی سوزش", "کھجلی"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جلد کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lac Caninum", symptoms: ["گلے کی سوزش", "خود اعتمادی کی کمی", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے اور خود اعتمادی کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Laurocerasus", symptoms: ["سانس کی تکلیف", "دل کی تکلیف", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lilium Tigrinum", symptoms: ["ماہواری کے مسائل", "جذباتی مسائل", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جذباتی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Magnesia Muriatica", symptoms: ["ہاضمے کی خرابی", "ماہواری کا درد", "سر درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Manganum Aceticum", symptoms: ["جوڑوں کا درد", "اعصابی کمزوری", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور اعصابی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Medorrhinum", symptoms: ["دمہ", "جلد کے مسائل", "جنسی مسائل"], dosage: "30C, 3 pellets daily", details: "دمہ اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Mercurius Corrosivus", symptoms: ["پیشاب کی جلن", "گلے کی سوزش", "اسہال"], dosage: "30C, 3 pellets every 3 hours", details: "پیشاب اور گلے کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Mezereum", symptoms: ["جلد کی سوزش", "کھجلی", "اعصابی درد"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Muriaticum Acidum", symptoms: ["تھکاوٹ", "ہاضمے کی خرابی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Naja Tripudians", symptoms: ["دل کی تکلیف", "بے چینی", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Natrum Carbonicum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "گرمی کی عدم برداشت"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Nitricum Acidum", symptoms: ["جلد کے مسائل", "پیشاب کی تکلیف", "زخم"], dosage: "30C, 3 pellets daily", details: "جلد اور پیشاب کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Nux Moschata", symptoms: ["نیند کی خرابی", "ہاضمے کی خرابی", "خشک منہ"], dosage: "30C, 3 pellets daily", details: "نیند اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Opium", symptoms: ["دماغی سستی", "نیند کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "دماغی سستی اور نیند کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Petroleum", symptoms: ["جلد کی سوزش", "خشک جلد", "کھجلی"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور خشک جلد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Phytolacca Decandra", symptoms: ["گلے کی سوزش", "جوڑوں کا درد", "غدود کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Plumbum Metallicum", symptoms: ["اعصابی کمزوری", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "اعصابی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Psorinum", symptoms: ["جلد کے مسائل", "کھجلی", "بدبو"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Pyrogenium", symptoms: ["بخار", "سوزش", "تھکاوٹ"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Radium Bromatum", symptoms: ["جوڑوں کا درد", "جلد کے مسائل", "جلن"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ranunculus Bulbosus", symptoms: ["جلد کی سوزش", "جوڑوں کا درد", "سینے میں درد"], dosage: "30C, 3 pellets daily", details: "جلد اور جوڑوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Rheum Palustre", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "اسہال"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sabadilla", symptoms: ["نزلہ", "الرجی", "چھینکیں"], dosage: "30C, 3 pellets every 3 hours", details: "نزلہ زکام اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sabina", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "درد"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sambucus Nigra", symptoms: ["ناک کی بندش", "کھانسی", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "ناک کی بندش اور کھانسی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sanguinaria", symptoms: ["مائیگرین", "چہرے کا درد", "سر درد"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Secale Cornutum", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "جلن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Spongia Tosta", symptoms: ["خشک کھانسی", "گلے کی سوزش", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Stramonium", symptoms: ["خوف", "بے چینی", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "خوف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sulphuric Acid", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "جلن"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Tabacum", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Tarentula Hispanica", symptoms: ["بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Urtica Urens", symptoms: ["جلد کی سوزش", "الرجی", "کھجلی"], dosage: "30C, 3 pellets every 3 hours", details: "جلد کی سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Valeriana Officinalis", symptoms: ["نیند کی خرابی", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "نیند اور بے چینی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Viburnum Opulus", symptoms: ["ماہواری کا درد", "عضلاتی کھچاؤ", "پیٹ کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "ماہواری اور عضلاتی درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Zingiber Officinale", symptoms: ["ہاضمے کی خرابی", "متلی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور متلی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aceticum Acidum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aesculus Carnea", symptoms: ["بواسیر", "رگوں کے مسائل", "کمر درد"], dosage: "30C, 3 pellets daily", details: "بواسیر اور رگوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aethiops Mineralis", symptoms: ["جلد کے مسائل", "سوزش", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "جلد اور سوزش کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Agnus Castus", symptoms: ["جنسی کمزوری", "تھکاوٹ", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Alfalfa", symptoms: ["تھکاوٹ", "بھوک کی کمی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور بھوک کی کمی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ammonium Carbonicum", symptoms: ["سانس کی تکلیف", "تھکاوٹ", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Anthracinum", symptoms: ["جلد کے زخم", "سوزش", "جلن"], dosage: "30C, 3 pellets daily", details: "جلد کے زخم اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Apocynum Cannabinum", symptoms: ["پانی کی کمی", "دل کی تکلیف", "سوجن"], dosage: "30C, 3 pellets daily", details: "پانی کی کمی اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aralia Racemosa", symptoms: ["کھانسی", "سانس کی تکلیف", "دمہ"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور سانس کی تکلیف کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Argentum Cyanatum", symptoms: ["گلے کی سوزش", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے کی سوزش اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Arum Triphyllum", symptoms: ["ناک کی بندش", "گلے کی سوزش", "کھانسی"], dosage: "30C, 3 pellets every 4 hours", details: "ناک اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Asarum Europaeum", symptoms: ["متلی", "سر درد", "سردی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور سر درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Asclepias Tuberosa", symptoms: ["کھانسی", "بخار", "پٹھوں میں درد"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aurum Muriaticum", symptoms: ["ڈپریشن", "دل کی تکلیف", "خوف"], dosage: "30C, 3 pellets daily", details: "ڈپریشن اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Badiaga", symptoms: ["جلد کے مسائل", "کھجلی", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Baptisia Confusa", symptoms: ["بخار", "تھکاوٹ", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Benzoicum Acidum", symptoms: ["پیشاب کی تکلیف", "جوڑوں کا درد", "گردے کے مسائل"], dosage: "30C, 3 pellets daily", details: "پیشاب اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Bovista", symptoms: ["جلد کے مسائل", "ماہواری کے مسائل", "پیٹ پھولنا"], dosage: "30C, 3 pellets daily", details: "جلد اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Caladium Seguinum", symptoms: ["جنسی کمزوری", "کھجلی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Calendula Officinalis", symptoms: ["زخم", "جلد کی سوزش", "جلن"], dosage: "30C, 3 pellets as needed", details: "زخموں اور جلد کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Capsicum Annuum", symptoms: ["گلے کی سوزش", "جلن", "درد"], dosage: "30C, 3 pellets every 3 hours", details: "گلے کی سوزش اور جلن کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Carduus Marianus", symptoms: ["جگر کے مسائل", "بواسیر", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور بواسیر کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Castor Equi", symptoms: ["ناخنوں کے مسائل", "جلد کے مسائل", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "ناخنوں اور جلد کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Chamomilla Vulgaris", symptoms: ["چڑچڑاپن", "دانتوں کا درد", "بے چینی (بچوں میں)"], dosage: "30C, 3 pellets as needed", details: "چڑچڑاپن اور دانتوں کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Chelidonium Majus", symptoms: ["جگر کے مسائل", "ہاضمے کی خرابی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cimicifuga Racemosa", symptoms: ["ماہواری کے مسائل", "جوڑوں کا درد", "دماغی تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cina", symptoms: ["پیٹ کے کیڑے", "چڑچڑاپن", "بچوں میں بے چینی"], dosage: "30C, 3 pellets daily", details: "پیٹ کے کیڑوں اور چڑچڑاپن کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cocculus Indicus", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Colchicum Autumnale", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "متلی"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Collinsonia Canadensis", symptoms: ["بواسیر", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "بواسیر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cuprum Metallicum", symptoms: ["پٹھوں کے کھچاؤ", "جھٹکے", "مرگی"], dosage: "30C, 3 pellets every 3 hours", details: "پٹھوں کے کھچاؤ اور جھٹکوں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Digitalis Purpurea", symptoms: ["دل کی تکلیف", "تھکاوٹ", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Echinacea Angustifolia", symptoms: ["مدافعتی کمزوری", "بخار", "سوزش"], dosage: "30C, 3 pellets daily", details: "مدافعتی نظام اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Eupatorium Perfoliatum", symptoms: ["ہڈیوں کا درد", "بخار", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "ہڈیوں کے درد اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ferrum Metallicum", symptoms: ["خون کی کمی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "خون کی کمی اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Gelsemium Sempervirens", symptoms: ["فلو", "پریشانی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "فلو اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Glonoinum", symptoms: ["سر درد", "گرمی کی لہریں", "چکر"], dosage: "30C, 3 pellets every 3 hours", details: "سر درد اور گرمی کی لہروں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Hamamelis Virginiana", symptoms: ["رگوں کے مسائل", "چوٹ", "بواسیر"], dosage: "30C, 3 pellets daily", details: "رگوں کے مسائل اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Hydrastis Canadensis", symptoms: ["سینوس", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "سینوس اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ipecacuanha", symptoms: ["متلی", "الٹی", "کھانسی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور الٹی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Iris Versicolor", symptoms: ["مائیگرین", "ہاضمے کی خرابی", "سر درد"], dosage: "30C, 3 pellets daily", details: "مائیگرین اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Iodatum", symptoms: ["سینوس", "سانس کی تکلیف", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "سینوس اور سانس کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Muriaticum", symptoms: ["گلے کی سوزش", "ناک کی بندش", "کان کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور ناک کی بندش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Sulphuricum", symptoms: ["جلد کے مسائل", "کھانسی", "دمہ"], dosage: "30C, 3 pellets daily", details: "جلد اور کھانسی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kreosotum", symptoms: ["ماہواری کے مسائل", "جلد کی سوزش", "کھجلی"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جلد کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Lac Caninum", symptoms: ["گلے کی سوزش", "خود اعتمادی کی کمی", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے اور خود اعتمادی کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Laurocerasus", symptoms: ["سانس کی تکلیف", "دل کی تکلیف", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Lilium Tigrinum", symptoms: ["ماہواری کے مسائل", "جذباتی مسائل", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جذباتی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Magnesia Muriatica", symptoms: ["ہاضمے کی خرابی", "ماہواری کا درد", "سر درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Manganum Aceticum", symptoms: ["جوڑوں کا درد", "اعصابی کمزوری", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور اعصابی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Medorrhinum", symptoms: ["دمہ", "جلد کے مسائل", "جنسی مسائل"], dosage: "30C, 3 pellets daily", details: "دمہ اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Mercurius Corrosivus", symptoms: ["پیشاب کی جلن", "گلے کی سوزش", "اسہال"], dosage: "30C, 3 pellets every 3 hours", details: "پیشاب اور گلے کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Mezereum", symptoms: ["جلد کی سوزش", "کھجلی", "اعصابی درد"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Muriaticum Acidum", symptoms: ["تھکاوٹ", "ہاضمے کی خرابی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Naja Tripudians", symptoms: ["دل کی تکلیف", "بے چینی", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Natrum Carbonicum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "گرمی کی عدم برداشت"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Nitricum Acidum", symptoms: ["جلد کے مسائل", "پیشاب کی تکلیف", "زخم"], dosage: "30C, 3 pellets daily", details: "جلد اور پیشاب کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Nux Moschata", symptoms: ["نیند کی خرابی", "ہاضمے کی خرابی", "خشک منہ"], dosage: "30C, 3 pellets daily", details: "نیند اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Opium", symptoms: ["دماغی سستی", "نیند کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "دماغی سستی اور نیند کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Petroleum", symptoms: ["جلد کی سوزش", "خشک جلد", "کھجلی"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور خشک جلد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Phytolacca Decandra", symptoms: ["گلے کی سوزش", "جوڑوں کا درد", "غدود کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Plumbum Metallicum", symptoms: ["اعصابی کمزوری", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "اعصابی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Psorinum", symptoms: ["جلد کے مسائل", "کھجلی", "بدبو"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Pyrogenium", symptoms: ["بخار", "سوزش", "تھکاوٹ"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Radium Bromatum", symptoms: ["جوڑوں کا درد", "جلد کے مسائل", "جلن"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ranunculus Bulbosus", symptoms: ["جلد کی سوزش", "جوڑوں کا درد", "سینے میں درد"], dosage: "30C, 3 pellets daily", details: "جلد اور جوڑوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Rheum Palustre", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "اسہال"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sabadilla", symptoms: ["نزلہ", "الرجی", "چھینکیں"], dosage: "30C, 3 pellets every 3 hours", details: "نزلہ زکام اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sabina", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "درد"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sambucus Nigra", symptoms: ["ناک کی بندش", "کھانسی", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "ناک کی بندش اور کھانسی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sanguinaria", symptoms: ["مائیگرین", "چہرے کا درد", "سر درد"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Secale Cornutum", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "جلن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Spongia Tosta", symptoms: ["خشک کھانسی", "گلے کی سوزش", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Stramonium", symptoms: ["خوف", "بے چینی", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "خوف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sulphuric Acid", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "جلن"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Tabacum", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Tarentula Hispanica", symptoms: ["بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Urtica Urens", symptoms: ["جلد کی سوزش", "الرجی", "کھجلی"], dosage: "30C, 3 pellets every 3 hours", details: "جلد کی سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Valeriana Officinalis", symptoms: ["نیند کی خرابی", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "نیند اور بے چینی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Viburnum Opulus", symptoms: ["ماہواری کا درد", "عضلاتی کھچاؤ", "پیٹ کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "ماہواری اور عضلاتی درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Zingiber Officinale", symptoms: ["ہاضمے کی خرابی", "متلی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور متلی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aceticum Acidum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aesculus Carnea", symptoms: ["بواسیر", "رگوں کے مسائل", "کمر درد"], dosage: "30C, 3 pellets daily", details: "بواسیر اور رگوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aethiops Mineralis", symptoms: ["جلد کے مسائل", "سوزش", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "جلد اور سوزش کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Agnus Castus", symptoms: ["جنسی کمزوری", "تھکاوٹ", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Alfalfa", symptoms: ["تھکاوٹ", "بھوک کی کمی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور بھوک کی کمی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ammonium Carbonicum", symptoms: ["سانس کی تکلیف", "تھکاوٹ", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Anthracinum", symptoms: ["جلد کے زخم", "سوزش", "جلن"], dosage: "30C, 3 pellets daily", details: "جلد کے زخم اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Apocynum Cannabinum", symptoms: ["پانی کی کمی", "دل کی تکلیف", "سوجن"], dosage: "30C, 3 pellets daily", details: "پانی کی کمی اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Aralia Racemosa", symptoms: ["کھانسی", "سانس کی تکلیف", "دمہ"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور سانس کی تکلیف کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Argentum Cyanatum", symptoms: ["گلے کی سوزش", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے کی سوزش اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Arum Triphyllum", symptoms: ["ناک کی بندش", "گلے کی سوزش", "کھانسی"], dosage: "30C, 3 pellets every 4 hours", details: "ناک اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Asarum Europaeum", symptoms: ["متلی", "سر درد", "سردی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور سر درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Asclepias Tuberosa", symptoms: ["کھانسی", "بخار", "پٹھوں میں درد"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Aurum Muriaticum", symptoms: ["ڈپریشن", "دل کی تکلیف", "خوف"], dosage: "30C, 3 pellets daily", details: "ڈپریشن اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Badiaga", symptoms: ["جلد کے مسائل", "کھجلی", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Baptisia Confusa", symptoms: ["بخار", "تھکاوٹ", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Benzoicum Acidum", symptoms: ["پیشاب کی تکلیف", "جوڑوں کا درد", "گردے کے مسائل"], dosage: "30C, 3 pellets daily", details: "پیشاب اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Bovista", symptoms: ["جلد کے مسائل", "ماہواری کے مسائل", "پیٹ پھولنا"], dosage: "30C, 3 pellets daily", details: "جلد اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Caladium Seguinum", symptoms: ["جنسی کمزوری", "کھجلی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "جنسی کمزوری اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Calendula Officinalis", symptoms: ["زخم", "جلد کی سوزش", "جلن"], dosage: "30C, 3 pellets as needed", details: "زخموں اور جلد کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Capsicum Annuum", symptoms: ["گلے کی سوزش", "جلن", "درد"], dosage: "30C, 3 pellets every 3 hours", details: "گلے کی سوزش اور جلن کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Carduus Marianus", symptoms: ["جگر کے مسائل", "بواسیر", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور بواسیر کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Castor Equi", symptoms: ["ناخنوں کے مسائل", "جلد کے مسائل", "خشک جلد"], dosage: "30C, 3 pellets daily", details: "ناخنوں اور جلد کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Chamomilla Vulgaris", symptoms: ["چڑچڑاپن", "دانتوں کا درد", "بے چینی (بچوں میں)"], dosage: "30C, 3 pellets as needed", details: "چڑچڑاپن اور دانتوں کے درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Chelidonium Majus", symptoms: ["جگر کے مسائل", "ہاضمے کی خرابی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "جگر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cimicifuga Racemosa", symptoms: ["ماہواری کے مسائل", "جوڑوں کا درد", "دماغی تھکاوٹ"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cina", symptoms: ["پیٹ کے کیڑے", "چڑچڑاپن", "بچوں میں بے چینی"], dosage: "30C, 3 pellets daily", details: "پیٹ کے کیڑوں اور چڑچڑاپن کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Cocculus Indicus", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Colchicum Autumnale", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "متلی"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Collinsonia Canadensis", symptoms: ["بواسیر", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "بواسیر اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Cuprum Metallicum", symptoms: ["پٹھوں کے کھچاؤ", "جھٹکے", "مرگی"], dosage: "30C, 3 pellets every 3 hours", details: "پٹھوں کے کھچاؤ اور جھٹکوں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Digitalis Purpurea", symptoms: ["دل کی تکلیف", "تھکاوٹ", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Echinacea Angustifolia", symptoms: ["مدافعتی کمزوری", "بخار", "سوزش"], dosage: "30C, 3 pellets daily", details: "مدافعتی نظام اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Eupatorium Perfoliatum", symptoms: ["ہڈیوں کا درد", "بخار", "فلو"], dosage: "30C, 3 pellets every 4 hours", details: "ہڈیوں کے درد اور بخار کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ferrum Metallicum", symptoms: ["خون کی کمی", "تھکاوٹ", "کمزوری"], dosage: "30C, 3 pellets daily", details: "خون کی کمی اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Gelsemium Sempervirens", symptoms: ["فلو", "پریشانی", "کمزوری"], dosage: "30C, 3 pellets every 3 hours", details: "فلو اور پریشانی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Glonoinum", symptoms: ["سر درد", "گرمی کی لہریں", "چکر"], dosage: "30C, 3 pellets every 3 hours", details: "سر درد اور گرمی کی لہروں کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Hamamelis Virginiana", symptoms: ["رگوں کے مسائل", "چوٹ", "بواسیر"], dosage: "30C, 3 pellets daily", details: "رگوں کے مسائل اور چوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Hydrastis Canadensis", symptoms: ["سینوس", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "سینوس اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ipecacuanha", symptoms: ["متلی", "الٹی", "کھانسی"], dosage: "30C, 3 pellets every 3 hours", details: "متلی اور الٹی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Iris Versicolor", symptoms: ["مائیگرین", "ہاضمے کی خرابی", "سر درد"], dosage: "30C, 3 pellets daily", details: "مائیگرین اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Iodatum", symptoms: ["سینوس", "سانس کی تکلیف", "غدود کے مسائل"], dosage: "30C, 3 pellets daily", details: "سینوس اور سانس کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kali Muriaticum", symptoms: ["گلے کی سوزش", "ناک کی بندش", "کان کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور ناک کی بندش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Kali Sulphuricum", symptoms: ["جلد کے مسائل", "کھانسی", "دمہ"], dosage: "30C, 3 pellets daily", details: "جلد اور کھانسی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Kreosotum", symptoms: ["ماہواری کے مسائل", "جلد کی سوزش", "کھجلی"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جلد کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lac Caninum", symptoms: ["گلے کی سوزش", "خود اعتمادی کی کمی", "جذباتی مسائل"], dosage: "30C, 3 pellets daily", details: "گلے اور خود اعتمادی کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Laurocerasus", symptoms: ["سانس کی تکلیف", "دل کی تکلیف", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس اور دل کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Lilium Tigrinum", symptoms: ["ماہواری کے مسائل", "جذباتی مسائل", "دل کی دھڑکن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور جذباتی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Magnesia Muriatica", symptoms: ["ہاضمے کی خرابی", "ماہواری کا درد", "سر درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور ماہواری کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Manganum Aceticum", symptoms: ["جوڑوں کا درد", "اعصابی کمزوری", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور اعصابی مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Medorrhinum", symptoms: ["دمہ", "جلد کے مسائل", "جنسی مسائل"], dosage: "30C, 3 pellets daily", details: "دمہ اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Mercurius Corrosivus", symptoms: ["پیشاب کی جلن", "گلے کی سوزش", "اسہال"], dosage: "30C, 3 pellets every 3 hours", details: "پیشاب اور گلے کی سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Mezereum", symptoms: ["جلد کی سوزش", "کھجلی", "اعصابی درد"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور کھجلی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Muriaticum Acidum", symptoms: ["تھکاوٹ", "ہاضمے کی خرابی", "کمزوری"], dosage: "30C, 3 pellets daily", details: "تھکاوٹ اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Naja Tripudians", symptoms: ["دل کی تکلیف", "بے چینی", "گلے کی سوزش"], dosage: "30C, 3 pellets daily", details: "دل کی تکلیف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Natrum Carbonicum", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "گرمی کی عدم برداشت"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Nitricum Acidum", symptoms: ["جلد کے مسائل", "پیشاب کی تکلیف", "زخم"], dosage: "30C, 3 pellets daily", details: "جلد اور پیشاب کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Nux Moschata", symptoms: ["نیند کی خرابی", "ہاضمے کی خرابی", "خشک منہ"], dosage: "30C, 3 pellets daily", details: "نیند اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Opium", symptoms: ["دماغی سستی", "نیند کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "دماغی سستی اور نیند کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Petroleum", symptoms: ["جلد کی سوزش", "خشک جلد", "کھجلی"], dosage: "30C, 3 pellets daily", details: "جلد کی سوزش اور خشک جلد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Phytolacca Decandra", symptoms: ["گلے کی سوزش", "جوڑوں کا درد", "غدود کے مسائل"], dosage: "30C, 3 pellets every 4 hours", details: "گلے اور جوڑوں کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Plumbum Metallicum", symptoms: ["اعصابی کمزوری", "ہاضمے کی خرابی", "قبض"], dosage: "30C, 3 pellets daily", details: "اعصابی اور ہاضمے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Psorinum", symptoms: ["جلد کے مسائل", "کھجلی", "بدبو"], dosage: "30C, 3 pellets daily", details: "جلد کے مسائل اور کھجلی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Pyrogenium", symptoms: ["بخار", "سوزش", "تھکاوٹ"], dosage: "30C, 3 pellets every 4 hours", details: "شدید بخار اور سوزش کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Radium Bromatum", symptoms: ["جوڑوں کا درد", "جلد کے مسائل", "جلن"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور جلد کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Ranunculus Bulbosus", symptoms: ["جلد کی سوزش", "جوڑوں کا درد", "سینے میں درد"], dosage: "30C, 3 pellets daily", details: "جلد اور جوڑوں کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Rheum Palustre", symptoms: ["جوڑوں کا درد", "ہاضمے کی خرابی", "اسہال"], dosage: "30C, 3 pellets daily", details: "جوڑوں اور ہاضمے کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sabadilla", symptoms: ["نزلہ", "الرجی", "چھینکیں"], dosage: "30C, 3 pellets every 3 hours", details: "نزلہ زکام اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sabina", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "درد"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Sambucus Nigra", symptoms: ["ناک کی بندش", "کھانسی", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "ناک کی بندش اور کھانسی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sanguinaria", symptoms: ["مائیگرین", "چہرے کا درد", "سر درد"], dosage: "200C, 3 pellets every 15 minutes", details: "چہرے کے درد اور مائیگرین کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Secale Cornutum", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "جلن"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Spongia Tosta", symptoms: ["خشک کھانسی", "گلے کی سوزش", "سانس کی تکلیف"], dosage: "30C, 3 pellets every 4 hours", details: "خشک کھانسی اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Stramonium", symptoms: ["خوف", "بے چینی", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "خوف اور بے چینی کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Sulphuric Acid", symptoms: ["ہاضمے کی خرابی", "تھکاوٹ", "جلن"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور تھکاوٹ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Tabacum", symptoms: ["متلی", "چکر", "سفر کی بیماری"], dosage: "30C, 3 pellets every 3 hours", details: "سفر کی متلی اور چکر کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Tarentula Hispanica", symptoms: ["بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Urtica Urens", symptoms: ["جلد کی سوزش", "الرجی", "کھجلی"], dosage: "30C, 3 pellets every 3 hours", details: "جلد کی سوزش اور الرجی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Valeriana Officinalis", symptoms: ["نیند کی خرابی", "بے چینی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "نیند اور بے چینی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Viburnum Opulus", symptoms: ["ماہواری کا درد", "عضلاتی کھچاؤ", "پیٹ کا درد"], dosage: "30C, 3 pellets every 3 hours", details: "ماہواری اور عضلاتی درد کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Zingiber Officinale", symptoms: ["ہاضمے کی خرابی", "متلی", "پیٹ کا درد"], dosage: "30C, 3 pellets daily", details: "ہاضمے اور متلی کے مسائل کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Teucrium Marum Verum", symptoms: ["ناک کی بندش", "پیٹ کے کیڑے", "کھجلی"], dosage: "30C, 3 pellets daily", details: "ناک کی بندش اور پیٹ کے کیڑوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Theridion Curassavicum", symptoms: ["سر درد", "چکر", "متلی"], dosage: "30C, 3 pellets daily", details: "سر درد اور چکر کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Thlaspi Bursa Pastoris", symptoms: ["خون کا بہنا", "پیشاب کی تکلیف", "گردے کے مسائل"], dosage: "30C, 3 pellets daily", details: "خون کے بہاؤ اور پیشاب کی تکلیف کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Trillium Pendulum", symptoms: ["خون کا بہنا", "ماہواری کے مسائل", "درد"], dosage: "30C, 3 pellets daily", details: "خون کے بہاؤ اور ماہواری کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Tuberculinum", symptoms: ["سانس کی تکلیف", "تھکاوٹ", "کھانسی"], dosage: "30C, 3 pellets daily", details: "سانس کی تکلیف اور تھکاوٹ کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Uranium Nitricum", symptoms: ["ذیابیطس", "گردے کے مسائل", "پیشاب کی تکلیف"], dosage: "30C, 3 pellets daily", details: "ذیابیطس اور گردے کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Ustilago Maydis", symptoms: ["ماہواری کے مسائل", "خون کا بہنا", "درد"], dosage: "30C, 3 pellets daily", details: "ماہواری اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Verbascum Thapsus", symptoms: ["کھانسی", "گلے کی سوزش", "بلغم"], dosage: "30C, 3 pellets every 4 hours", details: "کھانسی اور گلے کی سوزش کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Vinca Minor", symptoms: ["جلد کے مسائل", "خون کا بہنا", "کھجلی"], dosage: "30C, 3 pellets daily", details: "جلد اور خون کے بہاؤ کے مسائل کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Viola Odorata", symptoms: ["جوڑوں کا درد", "سانس کی تکلیف", "سر درد"], dosage: "30C, 3 pellets daily", details: "جوڑوں کے درد اور سانس کی تکلیف کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Xanthoxylum Fraxineum", symptoms: ["اعصابی درد", "ماہواری کا درد", "سر درد"], dosage: "30C, 3 pellets daily", details: "اعصابی اور ماہواری کے درد کے لیے۔", sideEffects: "محتاط استعمال کریں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "Zincum Valerianicum", symptoms: ["بے چینی", "نیند کی خرابی", "اعصابی مسائل"], dosage: "30C, 3 pellets daily", details: "بے چینی اور نیند کی خرابی کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" },
+      { name: "Zizia Aurea", symptoms: ["بے چینی", "جھٹکے", "نیند کی خرابی"], dosage: "30C, 3 pellets daily", details: "بے چینی اور جھٹکوں کے لیے۔", sideEffects: "عام طور پر محفوظ", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      // Pakistani Company Placeholder Products
+      { name: "کمال لیبارٹری - نسوار (KAMAL Lab - Niswar)", symptoms: ["بے خوابی", "بے چینی", "دماغی تھکاوٹ"], dosage: "30C, 2 pellets at night", details: "نیند کی کمی اور دماغی سکون کے لیے۔", sideEffects: "کوئی معلوم سائیڈ ایفیکٹس نہیں", antidote: "کافیا", opposite: "کوئی نہیں", materiaMedica: "New Research" },
+      { name: "کمال لیبارٹری - گیسٹرو کیئر (KAMAL Lab - GastroCare)", symptoms: ["بدہضمی", "پیٹ میں درد", "گیس"], dosage: "10 drops in water, 3 times daily", details: "ہاضمے کے مسائل اور پیٹ کی تکالیف کے لیے۔", sideEffects: "نہیں", antidote: "نکس وومیکا", opposite: "کوئی نہیں", materiaMedica: "New Research" },
+      { name: "کمال لیبارٹری - ہیئر گرو (KAMAL Lab - HairGrow)", symptoms: ["بالوں کا گرنا", "خشکی", "کمزور بال"], dosage: "Apply externally twice daily", details: "بالوں کی نشوونما اور مضبوطی کے لیے۔", sideEffects: "نہیں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "New Research" },
+      { name: "کمال لیبارٹری - بون سٹرینتھ (KAMAL Lab - BoneStrength)", symptoms: ["ہڈیوں میں درد", "کمزوری", "جوڑوں کی سختی"], dosage: "30C, 3 pellets daily", details: "ہڈیوں کی مضبوطی اور درد سے نجات کے لیے۔", sideEffects: "کوئی نہیں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "New Research" },
+      { name: "پاک ہومیو - بخار ریلیف (Pak Homeo - Fever Relief)", symptoms: ["بخار", "جسم میں درد", "تھکاوٹ"], dosage: "30C, 3 pellets every 6 hours", details: "عام بخار اور جسمانی درد کے لیے۔", sideEffects: "کوئی معلوم سائیڈ ایفیکٹس نہیں", antidote: "بیلاڈونا", opposite: "آرسینک", materiaMedica: "Boericke" },
+      { name: "چشتی فارما - کھانسی سیرپ (Chishti Pharma - Cough Syrup)", symptoms: ["کھانسی", "گلے میں خراش", "نزلہ"], dosage: "10ml, 3 times daily", details: "خشک اور بلغم والی کھانسی کے لیے۔", sideEffects: "معمولی غنودگی", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "الشفا ہومیو - جوڑوں کا درد فارمولا (Al-Shifa Homeo - Joint Pain Formula)", symptoms: ["جوڑوں کا درد", "سوجن", "اکڑن"], dosage: "200C, 2 pellets daily", details: "گٹھیا اور جوڑوں کے دائمی درد کے لیے۔", sideEffects: "نہیں", antidote: "رس ٹاکس", opposite: "برائیونیا", materiaMedica: "Boericke" },
+      { name: "ہمدرد ہومیو - ہاضمہ ڈراپس (Hamdard Homeo - Digestive Drops)", symptoms: ["بدہضمی", "پیٹ پھولنا", "گیس"], dosage: "15 drops in water, after meals", details: "ہاضمے کی خرابی اور پیٹ کے مسائل کے لیے۔", sideEffects: "معمولی پیٹ کی جلن", antidote: "نکس وومیکا", opposite: "کوئی نہیں", materiaMedica: "KENT" },
+      { name: "نیشنل ہومیو - سکن آئنٹمنٹ (National Homeo - Skin Ointment)", symptoms: ["خارش", "جلد کی خشکی", "الرجی"], dosage: "Apply twice daily", details: "جلد کی الرجی اور خارش کے لیے۔", sideEffects: "نہیں", antidote: "کوئی نہیں", opposite: "کوئی نہیں", materiaMedica: "Boericke" }
+    ];
+
+    // Extract unique symptoms to represent diseases
+    const allSymptoms = [...new Set(medicines.flatMap(med => med.symptoms))];
+    const diseases = allSymptoms.map(symptom => ({
+      name: symptom,
+      medicines: medicines.filter(med => med.symptoms.includes(symptom)).map(med => med.name)
+    }));
+
+    // Initialize Fuse.js for fuzzy searching for medicines
+    const medicineFuse = new Fuse(medicines, {
+      keys: ['name', 'symptoms', 'details', 'antidote', 'opposite', 'materiaMedica'],
+      includeScore: true,
+      threshold: 0.3
+    });
+
+    // Initialize Fuse.js for fuzzy searching for diseases (symptoms)
+    const diseaseFuse = new Fuse(diseases, {
+      keys: ['name', 'medicines'],
+      includeScore: true,
+      threshold: 0.3
+    });
+
+    // Initialize Fuse.js for fuzzy searching in the chart
+    const medicineChartFuse = new Fuse(medicines, {
+        keys: ['name', 'antidote', 'opposite', 'materiaMedica'],
+        includeScore: true,
+        threshold: 0.3
+    });
+
+
+    // Get DOM elements
+    const medicineTabBtn = document.getElementById('medicineTabBtn');
+    const diseaseTabBtn = document.getElementById('diseaseTabBtn');
+    const medicineChartTabBtn = document.getElementById('medicineChartTabBtn'); // New tab button
+    const medicineTabContent = document.getElementById('medicineTabContent');
+    const diseaseTabContent = document.getElementById('diseaseTabContent');
+    const medicineChartTabContent = document.getElementById('medicineChartTabContent'); // New tab content
+
+    const medicineSearchInput = document.getElementById('medicineSearchInput');
+    const medicineResultsDiv = document.getElementById('medicineResults');
+    const allMedicineListItems = document.getElementById('allMedicineListItems');
+
+    const diseaseSearchInput = document.getElementById('diseaseSearchInput');
+    const diseaseResultsDiv = document.getElementById('diseaseResults');
+    const allDiseaseListItems = document.getElementById('allDiseaseListItems');
+    const diseaseRelatedMedicinesSection = document.getElementById('diseaseRelatedMedicinesSection');
+    const diseaseRelatedMedicinesTitle = document.getElementById('diseaseRelatedMedicinesTitle');
+    const diseaseRelatedMedicinesList = document.getElementById('diseaseRelatedMedicinesList');
+
+
+    const medicineChartSearchInput = document.getElementById('medicineChartSearchInput'); // New chart search input
+    const medicineChartTableBody = document.getElementById('medicineChartTableBody'); // New chart table body
+
+    const medicineDetailModal = document.getElementById('medicineDetailModal');
+    const modalMedicineName = document.getElementById('modalMedicineName');
+    const modalSymptoms = document.getElementById('modalSymptoms');
+    const modalDosage = document.getElementById('modalDosage');
+    const modalDetails = document.getElementById('modalDetails');
+    const modalSideEffects = document.getElementById('modalSideEffects');
+    const modalAntidote = document.getElementById('modalAntidote'); // New modal element
+    const modalOpposite = document.getElementById('modalOpposite'); // New modal element
+    const modalMateriaMedica = document.getElementById('modalMateriaMedica'); // New modal element
+
+
+    // Function to switch tabs
+    function switchTab(tabId) {
+      // Deactivate all tabs and content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active-tab', 'bg-blue-800'));
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.add('bg-blue-700'));
+
+      // Activate the selected tab and content
+      document.getElementById(tabId).classList.add('active');
+      if (tabId === 'medicineTabContent') {
+        medicineTabBtn.classList.add('active-tab', 'bg-blue-800');
+        medicineTabBtn.classList.remove('bg-blue-700');
+        displayAllMedicines();
+        medicineSearchInput.value = ''; // Clear search input on tab switch
+        medicineResultsDiv.innerHTML = ''; // Clear search results
+        document.getElementById('allMedicineList').style.display = 'block';
+        diseaseRelatedMedicinesSection.classList.add('hidden'); // Hide related medicines if visible
+      } else if (tabId === 'diseaseTabContent') {
+        diseaseTabBtn.classList.add('active-tab', 'bg-blue-800');
+        diseaseTabBtn.classList.remove('bg-blue-700');
+        displayAllDiseases();
+        diseaseSearchInput.value = ''; // Clear search input on tab switch
+        diseaseResultsDiv.innerHTML = ''; // Clear search results
+        document.getElementById('allDiseaseList').style.display = 'block';
+        diseaseRelatedMedicinesSection.classList.add('hidden'); // Ensure related medicines are hidden initially
+      } else if (tabId === 'medicineChartTabContent') { // New tab
+            medicineChartTabBtn.classList.add('active-tab', 'bg-blue-800');
+            medicineChartTabBtn.classList.remove('bg-blue-700');
+            displayMedicineChart(medicines); // Display full chart initially
+            medicineChartSearchInput.value = ''; // Clear search input
+            diseaseRelatedMedicinesSection.classList.add('hidden'); // Hide related medicines if visible
+        }
+    }
+
+    // Function to display medicine search results
+    function displayMedicineResults(results) {
+      medicineResultsDiv.innerHTML = '';
+      if (results.length === 0) {
+        medicineResultsDiv.innerHTML = '<p class="text-center text-gray-500 urdu">کوئی دوا نہیں ملی۔</p>';
+        return;
+      }
+      results.forEach(result => {
+        const medicine = result.item;
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md urdu cursor-pointer hover:shadow-lg transition-shadow duration-200';
+        card.innerHTML = `
+          <h3 class="text-lg font-bold mb-2">${medicine.name}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400"><strong>علامات:</strong> ${medicine.symptoms.join(', ')}</p>
+        `;
+        card.addEventListener('click', () => openMedicineDetailModal(medicine));
+        medicineResultsDiv.appendChild(card);
+      });
+    }
+
+    // Function to display disease search results
+    function displayDiseaseResults(results) {
+      diseaseResultsDiv.innerHTML = '';
+      if (results.length === 0) {
+        diseaseResultsDiv.innerHTML = '<p class="text-center text-gray-500 urdu">کوئی بیماری نہیں ملی۔</p>';
+        return;
+      }
+      results.forEach(result => {
+        const disease = result.item;
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md urdu cursor-pointer hover:shadow-lg transition-shadow duration-200';
+        card.innerHTML = `
+          <h3 class="text-lg font-bold mb-2">${disease.name}</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400"><strong>متعلقہ ادویات:</strong> ${disease.medicines.join(', ')}</p>
+        `;
+        card.addEventListener('click', () => showRelatedMedicines(disease.name));
+        diseaseResultsDiv.appendChild(card);
+      });
+    }
+
+    // Function to show medicines related to a specific disease
+    function showRelatedMedicines(diseaseName) {
+        const selectedDisease = diseases.find(d => d.name === diseaseName);
+        if (!selectedDisease) return;
+
+        diseaseRelatedMedicinesTitle.textContent = `متعلقہ ادویات برائے: ${selectedDisease.name}`;
+        diseaseRelatedMedicinesList.innerHTML = '';
+
+        selectedDisease.medicines.forEach(medName => {
+            const medicine = medicines.find(m => m.name === medName);
+            if (medicine) {
+                const card = document.createElement('div');
+                card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md urdu cursor-pointer hover:shadow-lg transition-shadow duration-200';
+                card.innerHTML = `
+                    <h3 class="text-lg font-bold mb-2">${medicine.name}</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400"><strong>خوراک:</strong> ${medicine.dosage}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400"><strong>مٹیریا میڈیکا:</strong> ${medicine.materiaMedica || 'معلوم نہیں'}</p>
+                `;
+                card.addEventListener('click', () => openMedicineDetailModal(medicine));
+                diseaseRelatedMedicinesList.appendChild(card);
+            }
+        });
+
+        // Hide disease search and all disease list
+        diseaseSearchInput.classList.add('hidden');
+        diseaseResultsDiv.classList.add('hidden');
+        allDiseaseList.classList.add('hidden');
+
+        // Show related medicines section
+        diseaseRelatedMedicinesSection.classList.remove('hidden');
+    }
+
+    // Function to go back to disease search from related medicines
+    function backToDiseaseSearch() {
+        diseaseRelatedMedicinesSection.classList.add('hidden'); // Hide related medicines
+        diseaseSearchInput.classList.remove('hidden'); // Show search input
+        diseaseResultsDiv.classList.remove('hidden'); // Show search results (if any)
+        allDiseaseList.classList.remove('hidden'); // Show all diseases list
+        diseaseSearchInput.value = ''; // Clear search
+        displayAllDiseases(); // Re-display all diseases
+    }
+
+    // Function to display the full list of medicines
+    function displayAllMedicines() {
+      allMedicineListItems.innerHTML = '';
+      medicines.forEach(medicine => {
+        const listItem = document.createElement('li');
+        listItem.className = 'py-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200';
+        listItem.textContent = medicine.name;
+        listItem.addEventListener('click', () => openMedicineDetailModal(medicine));
+        allMedicineListItems.appendChild(listItem);
+      });
+    }
+
+    // Function to display the full list of diseases (symptoms)
+    function displayAllDiseases() {
+      allDiseaseListItems.innerHTML = '';
+      diseases.forEach(disease => {
+        const listItem = document.createElement('li');
+        listItem.className = 'py-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200';
+        listItem.textContent = disease.name;
+        listItem.addEventListener('click', () => showRelatedMedicines(disease.name));
+        allDiseaseListItems.appendChild(listItem);
+      });
+    }
+
+    // Function to display the medicine chart
+    function displayMedicineChart(medicinesToDisplay) {
+        medicineChartTableBody.innerHTML = '';
+        if (medicinesToDisplay.length === 0) {
+            medicineChartTableBody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-500 urdu">کوئی دوا نہیں ملی۔</td></tr>';
+            return;
+        }
+        medicinesToDisplay.forEach(medicine => {
+            const row = document.createElement('tr');
+            row.className = 'urdu';
+            row.innerHTML = `
+                <td class="py-2 px-4 font-medium">${medicine.name}</td>
+                <td class="py-2 px-4">${medicine.antidote || 'معلوم نہیں'}</td>
+                <td class="py-2 px-4">${medicine.opposite || 'معلوم نہیں'}</td>
+            `;
+            medicineChartTableBody.appendChild(row);
+        });
+    }
+
+    // Open medicine detail modal
+    function openMedicineDetailModal(medicine) {
+      modalMedicineName.textContent = medicine.name;
+      modalSymptoms.textContent = medicine.symptoms.join(', ');
+      modalDosage.textContent = medicine.dosage;
+      modalDetails.textContent = medicine.details;
+      modalSideEffects.textContent = medicine.sideEffects;
+      modalAntidote.textContent = medicine.antidote || 'معلوم نہیں';
+      modalOpposite.textContent = medicine.opposite || 'معلوم نہیں';
+      modalMateriaMedica.textContent = medicine.materiaMedica || 'معلوم نہیں';
+      medicineDetailModal.style.display = 'flex'; // Use flex to center
+    }
+
+    // Close medicine detail modal
+    function closeMedicineDetailModal() {
+      medicineDetailModal.style.display = 'none';
+    }
+
+    // Event listeners for search inputs
+    medicineSearchInput.addEventListener('input', (e) => {
+      const query = e.target.value;
+      if (query.length > 0) {
+        const result = medicineFuse.search(query);
+        displayMedicineResults(result);
+        document.getElementById('allMedicineList').style.display = 'none';
+      } else {
+        medicineResultsDiv.innerHTML = '';
+        document.getElementById('allMedicineList').style.display = 'block';
+        displayAllMedicines();
+      }
+    });
+
+    diseaseSearchInput.addEventListener('input', (e) => {
+      const query = e.target.value;
+      if (query.length > 0) {
+        const result = diseaseFuse.search(query);
+        displayDiseaseResults(result);
+        document.getElementById('allDiseaseList').style.display = 'none';
+        diseaseRelatedMedicinesSection.classList.add('hidden'); // Hide related medicines when searching diseases
+      } else {
+        diseaseResultsDiv.innerHTML = '';
+        document.getElementById('allDiseaseList').style.display = 'block';
+        displayAllDiseases();
+        diseaseRelatedMedicinesSection.classList.add('hidden'); // Hide related medicines when search is cleared
+      }
+    });
+
+    // Event listener for medicine chart search input
+    medicineChartSearchInput.addEventListener('input', (e) => {
+        const query = e.target.value;
+        if (query.length > 0) {
+            const result = medicineChartFuse.search(query);
+            displayMedicineChart(result.map(res => res.item));
+        } else {
+            displayMedicineChart(medicines); // Show all medicines if search is empty
+        }
+    });
+
+    // Event listeners for tab buttons
+    medicineTabBtn.addEventListener('click', () => switchTab('medicineTabContent'));
+    diseaseTabBtn.addEventListener('click', () => switchTab('diseaseTabContent'));
+    medicineChartTabBtn.addEventListener('click', () => switchTab('medicineChartTabContent')); // New tab event listener
+
+    // Dark mode toggle function
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      // Optionally save preference to localStorage
+      if (document.body.classList.contains('dark')) {
+        localStorage.setItem('theme', 'dark');
+      } else {
+        localStorage.setItem('theme', 'light');
+      }
+    }
+
+    // Apply saved theme on load
+    (function() {
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.body.classList.add('dark');
+      } else {
+        document.body.classList.remove('dark');
+      }
+    })();
+
+    // Initial display when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      switchTab('medicineTabContent'); // Default to medicine tab
+      generateAndSetLogo(); // Generate and set the logo
+    });
+  </script>
+</body>
+</html>
